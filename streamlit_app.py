@@ -1,5 +1,6 @@
 import pandas_datareader as pdr
 import plotly.graph_objects as go
+import altair as alt
 import streamlit as st
 import datetime as dt
 import pandas as pd
@@ -7,39 +8,31 @@ import pandas as pd
 
 def get_stock_data(ticker, start_date, end_date):
     tickers = pdr.get_nasdaq_symbols()
-    # Convert the ticker symbol to uppercase
     ticker = ticker.upper()
-    # Retrieve the data for the stock
     stock_data = pdr.get_data_yahoo(ticker, start=start_date, end=end_date)
-    # Map the ticker symbol to the corresponding company name
     company_name = tickers.loc[ticker, 'Security Name']
     return stock_data, company_name
 
 
 def get_sp_data(start_date, end_date):
-    # Retrieve the data for the S&P 500 over the same time period
     sp_data = pdr.get_data_yahoo('^GSPC', start=start_date, end=end_date)
     return sp_data
 
 
 def get_returns(stock_data, sp_data):
-    # Calculate the return of the stock over the time period
     stock_return = (stock_data['Adj Close'][-1] /
                     stock_data['Adj Close'][0]) - 1
-    # Calculate the return of the S&P 500 over the time period
     sp_return = (sp_data['Adj Close'][-1] / sp_data['Adj Close'][0]) - 1
     return stock_return, sp_return
 
 
 def create_chart(stock_data, sp_data, stock):
-    # Create a candlestick chart with plotly.graph_objects
     fig = go.Figure(data=[go.Candlestick(x=stock_data.index,
                                          open=stock_data['Open'],
                                          high=stock_data['High'],
                                          low=stock_data['Low'],
                                          close=stock_data['Close'],
                                          name=stock)])
-    # Add the S&P 500 data to the chart
     fig.add_scatter(x=sp_data.index, y=sp_data['Adj Close'], name='S&P 500')
     return fig
 
@@ -51,15 +44,13 @@ def main():
         layout="wide",
         initial_sidebar_state="expanded"
     )
+    st.title('💹 Backtesting App')
     with st.sidebar:
         st.sidebar.image('assets/gilly-wcWN29NufMQ-unsplash.jpg')
         with st.form('my_form'):
-            # Retrieve the stock data
             tickers = pdr.get_nasdaq_symbols()
             ticker_list = tickers['NASDAQ Symbol'].tolist()
             stock = st.selectbox('Select a ticker symbol', ticker_list)
-
-            # Use the number_input component to create an input box for the simulated investment amount
             investment_amount = st.number_input(
                 'Simulated investment amount', value=1000)
 
@@ -72,28 +63,16 @@ def main():
             submit = st.form_submit_button(label="Submit")
 
     if submit:
-        # Get the stock data and company name
         stock_data, company_name = get_stock_data(stock, start_date, end_date)
         st.subheader(company_name)
-
-        # Get the S&P 500 data
         sp_data = get_sp_data(start_date, end_date)
-
-        # Get the returns for the stock and the S&P 500
         stock_return, sp_return = get_returns(stock_data, sp_data)
-
-        # Convert the investment_amount variable to a float
         investment_amount = float(investment_amount)
-
-        # Calculate the return of the simulated investment
         simulated_return_delta = investment_amount * stock_return
 
         with st.container():
-            # Print the simulated return
             col1, col2, col3 = st.columns(3)
-            # Display the simulated return using st.metric
             if simulated_return_delta > 0:
-                # Calculate simulated_return_delta
                 simulated_return = investment_amount + simulated_return_delta
                 col1.metric(
                     label="Simulated return",
@@ -102,20 +81,15 @@ def main():
                 )
             else:
                 if simulated_return_delta < 0:
-                    # Calculate simulated_return_delta
                     simulated_return = investment_amount + simulated_return_delta
                     col1.metric(
                         label="Simulated return",
                         value=f"${simulated_return:.2f}",
                         delta=f"${simulated_return_delta:.2f}"
                     )
-
-            # Display the stock return using st.metric
             col2.metric(label=f"{stock} Stock return", value=f"{stock_return:.2%}")
-            # Display the S&P 500 return using st.metric
             col3.metric(label="S&P 500 return", value=f"{sp_return:.2%}")
 
-        # Create the charts
         sp_df = sp_data.rename(columns={'High':'SP_High', 'Low':'SP_Low', 'Open':'SP_Open', 
         'Close':'SP_Close', 'Volume':'SP_Volume', 'Adj Close':'SP_Adj_Close'})
 
@@ -126,19 +100,12 @@ def main():
         sp_return = sp_data_norm['SP_Close'].pct_change()
 
         stock_sp = pd.concat([stock_return, sp_return], axis=1)
-        st.dataframe(stock_sp.head(), use_container_width=True)
-        st.info(f'{company_name} and S&P 500 Daily Return (Normalized)')
+
+        st.info(f'{company_name} and S&P 500 Daily Return (normalized returns)')
         st.bar_chart(stock_sp, use_container_width=True)
 
-        # st.info(f'{company_name} and S&P 500 Chart')
-        first, second = st.columns(2)
-        with first:
-            st.info('Trading Volume')
-            st.bar_chart(stock_data['Volume'], use_container_width=True)
-
-        with second:
-            st.info('Trading Volume')
-            st.bar_chart(sp_data['Volume'], use_container_width=True)
+        st.info(f'{company_name} Trading Volume')
+        st.bar_chart(stock_data['Volume'], use_container_width=True)
 
    
 if __name__ == '__main__':
